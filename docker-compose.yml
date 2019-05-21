@@ -1,0 +1,43 @@
+version: '3'
+
+volumes:
+  ulcccore:
+#  mariadb:
+
+networks:
+  internal:
+
+services:
+
+  # https://hub.docker.com/_/mariadb
+  # mariadb:
+  #   image: mariadb:10.4
+  #   volumes:
+  #     - mariadb:/var/lib/mysql
+  #   env_file:
+  #     - .env
+  #   healthcheck:
+  #     test: ""
+  #     interval: 30s
+  #     timeout: 5s
+  #     retries: 3
+  #   volumes:
+  #     - mariadb:/var/lib/mysql
+  #   networks:
+  #     internal:
+
+  ulcccore: 
+    build: 
+      context: .
+      args:
+         APP_WORKDIR: ${APP_WORKDIR}
+         BRANCH: ${BRANCH}
+    env_file:
+      - .env
+    volumes:
+      - ulcccore:/data
+      - ulcccore:$APP_WORKDIR/archives
+    networks:
+      internal:
+    # depends_on:
+    #   - mariadb
