@@ -2,8 +2,6 @@ FROM httpd:2.4
 
 RUN apt-get update
 
-# mysql-server mysql-client
-
 # Install all the things
 RUN apt-get update -qq \
   && apt-get install -y git vim \
@@ -11,29 +9,41 @@ RUN apt-get update -qq \
   libterm-readkey-perl libmime-lite-perl libmime-types-perl libdigest-sha-perl libdbd-mysql-perl libxml-parser-perl libxml2-dev \
   libxml-twig-perl libarchive-any-perl libjson-perl lynx wget ghostscript xpdf antiword elinks texlive-base texlive-base-bin \
   psutils imagemagick adduser tar gzip unzip libsearch-xapian-perl libtex-encode-perl
+  # mysql-server mysql-client
+
+# Add the entrypoint file - @todo, remove if we don't need this
+COPY docker/docker-entrypoint.sh /bin/
+RUN chmod +x /bin/docker-entrypoint.sh
 
 # Setup build variables
 ARG APP_WORKDIR
 ARG BRANCH
-ARG EPRINTS_USER
+ARG APACHE_RUN_USER
+ARG APACHE_RUN_GROUP
 
-# should we provide a password
-RUN adduser --disabled-password --gecos "" $EPRINTS_USER
-RUN usermod -aG sudo eprints
-RUN echo -e "\nexport APACHE_RUN_USER=eprints\nexport APACHE_RUN_GROUP=eprints" >> /etc/apache2/envvars
+# Create the $APACHE_RUN_USER
+RUN adduser --disabled-password --gecos "" $APACHE_RUN_USER
 
+# Set the envvars
+RUN echo "export APACHE_RUN_USER=$APACHE_RUN_USER" | tee -a /usr/local/apache2/bin/envvars >/dev/null
+RUN echo "export APACHE_RUN_GROUP=$APACHE_RUN_GROUP" | tee -a /usr/local/apache2/bin/envvars >/dev/null
+
+# Run on port 8080 - TEMP, we'll probably replace this file with a custom one and run on https
+RUN sed -i -E 's/Listen 80+$/Listen 8080/g' /usr/local/apache2/conf/httpd.conf
+
+# Clone the application
 RUN git clone https://github.com/eprintsug/ulcc-core.git $APP_WORKDIR
 
-RUN chown -R eprints $APP_WORKDIR
-USER $EPRINTS_USER
+# Change ownership of application and apache2 directories
+RUN chown -R $APACHE_RUN_USER:$APACHE_RUN_GROUP $APP_WORKDIR
+RUN chown -R $APACHE_RUN_USER:$APACHE_RUN_GROUP /usr/local/apache2
+
+USER $APACHE_RUN_USER
 WORKDIR $APP_WORKDIR
 
 RUN git checkout $BRANCH
 RUN git submodule update --init
 
+# @todo
 # SystemSettings.pm
 # apache setup stuff
-
-# Add the entrypoint file
-COPY docker/docker-entrypoint.sh /bin/
-RUN chmod +x /bin/docker-entrypoint.sh

@@ -29,7 +29,8 @@ services:
       args:
          APP_WORKDIR: ${APP_WORKDIR}
          BRANCH: ${BRANCH}
-         EPRINTS_USER: ${EPRINTS_USER}
+         APACHE_RUN_USER: ${APACHE_RUN_USER}
+         APACHE_RUN_GROUP: ${APACHE_RUN_GROUP}
     env_file:
       - .env
     volumes:
@@ -42,4 +43,4 @@ services:
     expose: 
       - 80
     ports:
-      - 80:80
+      - 8080:80
