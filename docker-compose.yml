@@ -8,7 +8,6 @@ networks:
   internal:
 
 services:
-
   # https://hub.docker.com/_/mariadb
   mariadb:
     image: mariadb:10.4
@@ -21,8 +20,6 @@ services:
     #   interval: 30s
     #   timeout: 5s
     #   retries: 3
-    volumes:
-      - mariadb:/var/lib/mysql
     networks:
       internal:
 
