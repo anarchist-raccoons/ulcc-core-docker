@@ -29,6 +29,7 @@ services:
       args:
          APP_WORKDIR: ${APP_WORKDIR}
          BRANCH: ${BRANCH}
+         EPRINTS_USER: ${EPRINTS_USER}
     env_file:
       - .env
     volumes:
