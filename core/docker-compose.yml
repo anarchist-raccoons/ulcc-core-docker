@@ -12,7 +12,6 @@ services:
     build: 
       context: .
       args:
-         APP_WORKDIR: ${APP_WORKDIR}
          BRANCH: ${BRANCH}
          APACHE_RUN_USER: ${APACHE_RUN_USER}
          APACHE_RUN_GROUP: ${APACHE_RUN_GROUP}

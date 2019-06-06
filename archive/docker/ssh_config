@@ -1,0 +1,3 @@
+# Disable host checking for intermediate build
+Host *
+    StrictHostKeyChecking no

@@ -12,7 +12,7 @@ RUN apt-get update -qq \
   libapache2-mod-perl2
 
 # Setup build variables
-ARG APP_WORKDIR
+ARG APP_WORKDIR=/opt/eprints3
 ARG BRANCH
 ARG APACHE_RUN_USER
 ARG APACHE_RUN_GROUP
