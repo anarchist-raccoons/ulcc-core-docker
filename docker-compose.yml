@@ -41,6 +41,6 @@ services:
     depends_on:
       - mariadb
     expose: 
-      - 80
+      - 8080
     ports:
-      - 8080:80
+      - 80:8080

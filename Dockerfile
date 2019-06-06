@@ -8,7 +8,7 @@ RUN apt-get update -qq \
   perl libncurses5 libselinux1 libsepol1 apache2 libapache2-mod-perl2 libxml-libxml-perl libunicode-string-perl \
   libterm-readkey-perl libmime-lite-perl libmime-types-perl libdigest-sha-perl libdbd-mysql-perl libxml-parser-perl libxml2-dev \
   libxml-twig-perl libarchive-any-perl libjson-perl lynx wget ghostscript xpdf antiword elinks texlive-base texlive-base-bin \
-  psutils imagemagick adduser tar gzip unzip libsearch-xapian-perl libtex-encode-perl libcgi-pm-perl
+  psutils imagemagick adduser tar gzip unzip libsearch-xapian-perl libtex-encode-perl libcgi-pm-perl liburi-perl
   # mysql-server mysql-client
 
 # Add the entrypoint file - @todo, remove if we don't need this
