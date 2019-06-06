@@ -1,0 +1,47 @@
+version: '3.3'
+
+volumes:
+  archives:
+  mariadb:
+
+networks:
+  internal:
+
+services:
+  # https://hub.docker.com/_/mariadb
+  mariadb:
+    image: mariadb:10.4
+    volumes:
+      - mariadb:/var/lib/mysql
+    env_file:
+      - .env
+    environment:
+      - MYSQL_DATABASE=${APP_KEY}
+      - MYSQL_USER=${APP_KEY}
+    # healthcheck:
+    #   test: ""
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 3
+    networks:
+      internal:
+    deploy:
+      endpoint_mode: dnsrr
+
+  archives: 
+    build: 
+      context: .
+      args:
+         APP_KEY: ${APP_KEY}
+    env_file:
+      - .env
+    volumes:
+      - archives:$APP_WORKDIR/archives
+    networks:
+      internal:
+    depends_on:
+      - mariadb
+    expose: 
+      - 8080
+    ports:
+      - 80:8080
