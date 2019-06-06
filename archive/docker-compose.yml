@@ -29,10 +29,11 @@ services:
       endpoint_mode: dnsrr
 
   archives: 
+    entrypoint: 
+      - /bin/docker-entrypoint.sh
     build: 
       context: .
       args:
-        APP_WORKDIR: ${APP_WORKDIR}/archives
         APP_KEY: ${APP_KEY}
         APP_SOURCE: ${APP_SOURCE}
         SSH_PRIVATE_KEY_PATH: ${SSH_PRIVATE_KEY_PATH}
