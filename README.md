@@ -12,7 +12,7 @@ To build:
 * fill out the variables in .env
 * docker-compose build
 
-# An EPrints archive [WIP]
+# An EPrints archive
 
 To build:
 
@@ -23,4 +23,24 @@ To build:
 To run:
 
 * docker-compose up
+
+# Terraform
+
+* ensure .env variables are in place
+* build the latest image for the archive
+* cd terraform
+* cp terraform.tfvars.template terraform.tfvars
+* fill out the variables in terraform.tfvars
+* terraform init (first time - add --upgrade to upgrade terraform modules)
+* terraform plan -out name.tfplan # where name is the same as the variable in tfvars
+* terraform apply "name.tfplan"
+* 
+## TODO
+
+Set up a CronJob in Kubernetes (https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/) to regularly back up files that users can edit from the GUI (cfg/lang/*)
+Restore these files in docker-entrypoint.sh
+
+Multi eprints build (prod / uat) - will need different ports
+
+SSL and 443
 

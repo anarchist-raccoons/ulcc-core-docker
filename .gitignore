@@ -1,0 +1,15 @@
+# Env
+.env
+
+# terraform
+*/terraform/.terraform/*
+terraform/.terraform/*
+*.tfvars
+*.tfstate
+*.tfstate*
+*.tfplan
+terraform/config.json
+
+# Keys
+*id_rsa
+id_rsa

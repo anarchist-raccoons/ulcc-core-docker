@@ -1,7 +1,8 @@
 version: '3.3'
 
 volumes:
-  archives:
+  data:
+  lang:
   mariadb:
 
 networks:
@@ -18,11 +19,11 @@ services:
     environment:
       - MYSQL_DATABASE=${APP_KEY}
       - MYSQL_USER=${APP_KEY}
-    # healthcheck:
-    #   test: ""
-    #   interval: 30s
-    #   timeout: 5s
-    #   retries: 3
+    healthcheck:
+      test: ["CMD-SHELL", 'mysqlshow -h mariadb -u $APP_KEY -p$MYSQL_PASSWORD $APP_KEY']
+      interval: 30s
+      timeout: 10s
+      retries: 4
     networks:
       internal:
     deploy:
@@ -36,16 +37,18 @@ services:
       args:
         APP_KEY: ${APP_KEY}
         APP_SOURCE: ${APP_SOURCE}
+        EXTERNAL_HOSTNAME: ${EXTERNAL_HOSTNAME}
         SSH_PRIVATE_KEY_PATH: ${SSH_PRIVATE_KEY_PATH}
     env_file:
       - .env
     volumes:
-      - archives:$APP_WORKDIR/archives
+      - data:$APP_WORKDIR/archives/${APP_KEY}/documents
+      - lang:$APP_WORKDIR/archives/${APP_KEY}/cfg/lang
     networks:
       internal:
     depends_on:
       - mariadb
     expose: 
-      - 8080
+      - 80
     ports:
-      - 80:8080
+      - 80:80
