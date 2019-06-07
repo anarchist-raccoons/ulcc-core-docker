@@ -1,0 +1,31 @@
+# AZURE Required
+subscription_id=""
+client_id=""
+client_secret=""
+tenant_id=""
+ssh_key = ""
+
+owner="" # email address
+name="" # same as app_key
+environment="uat" # uat, prod or demo; dev is default
+server_user="azureuser"
+developer_access = []
+user_access = ["0.0.0.0/0"]
+
+zone_name = "leaf.cosector.com"
+zone_resource_group = "rt-service-management"
+
+# AZURE Optional (defaults in place)
+location="northeurope"
+# account_tier=""
+# 4vCPU 8GB RAM
+vm_size="Standard_A4_v2"
+
+# ALL Optional (defaults in place)
+# namespace-org="" # default is dev
+# org=""
+# service=""
+# product=""
+# team=""
+
+
