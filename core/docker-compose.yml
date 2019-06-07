@@ -13,12 +13,8 @@ services:
       context: .
       args:
          BRANCH: ${BRANCH}
-         APACHE_RUN_USER: ${APACHE_RUN_USER}
-         APACHE_RUN_GROUP: ${APACHE_RUN_GROUP}
     env_file:
       - .env
-    volumes:
-      - ulcccore:$APP_WORKDIR/archives
     networks:
       internal:
     expose: 

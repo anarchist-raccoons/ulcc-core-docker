@@ -10,7 +10,7 @@ done
 
 cd /opt/eprints3
 
-if [ ! -f /opt/eprints3/archives/$APP_KEY/cfg/lang/.initialized ]; then
+if [ ! -f /data/.initialized ]; then
   echo "Initializing repo"
   sed -i "s/changeme/$EXTERNAL_HOSTNAME/" /opt/eprints3/archives/$APP_KEY/cfg/cfg.d/10_core_$APP_KEY.pl
   su eprints -s ./bin/epadmin create_tables $APP_KEY
@@ -29,8 +29,13 @@ echo "Include /opt/eprints3/cfg/apache.conf" | tee -a /usr/local/apache2/conf/ht
 su eprints -s ./bin/generate_static $APP_KEY
 su eprints -s ./bin/generate_views $APP_KEY
 
-# @todo - restore backed up files from cfg/lang/*
+# Restore files to cfg/lang/*
+cp -r  /data/lang/* /opt/eprints3/archives/$APP_KEY/cfg/lang/
+chown -R eprints:eprints /opt/eprints3/archives/$APP_KEY/cfg/lang/
+
+# Backup the files from cfg/lang hourly
+(crontab -l ; echo "*/60 * * * * cp -r /opt/eprints3/archives/$APP_KEY/cfg/lang /data/" ) | crontab -
+service cron restart
 
 echo "Starting apache"
 /usr/local/bin/httpd-foreground
-

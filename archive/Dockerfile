@@ -6,10 +6,10 @@
 FROM researchtech/ulcc-core:alpha as intermediate
 
 ARG APP_WORKDIR=/opt/eprints3
+ARG EPUSER=eprints
 ARG APP_KEY
 ARG APP_SOURCE
 ARG SSH_PRIVATE_KEY_PATH
-ARG EPUSER=eprints
 
 RUN mkdir /root/.ssh/
 
@@ -25,8 +25,8 @@ RUN git clone git@$APP_SOURCE/$APP_KEY.git $APP_WORKDIR/archives/$APP_KEY
 FROM researchtech/ulcc-core:alpha
 
 ARG APP_WORKDIR=/opt/eprints3
-ARG APP_KEY
 ARG EPUSER=eprints
+ARG APP_KEY
 ARG EXTERNAL_HOSTNAME
 
 WORKDIR $APP_WORKDIR
@@ -47,7 +47,5 @@ RUN sed -i 's/localhost/mariadb/' $APP_WORKDIR/archives/$APP_KEY/cfg/cfg.d/datab
 RUN sed -i 's/MyISAM/InnoDB/' $APP_WORKDIR/archives/$APP_KEY/cfg/cfg.d/database.pl
 
 COPY docker/10_core.pl $APP_WORKDIR/archives/$APP_KEY/cfg/cfg.d/10_core_$APP_KEY.pl
-
-# RUN mv $APP_WORKDIR/archives/$APP_KEY/cfg/lang $APP_WORKDIR/archives/$APP_KEY/cfg/langtmp 
 
 USER root
