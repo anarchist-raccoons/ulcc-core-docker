@@ -2,7 +2,6 @@ version: '3.3'
 
 volumes:
   data:
-  lang:
   mariadb:
 
 networks:
@@ -43,7 +42,6 @@ services:
       - .env
     volumes:
       - data:$APP_WORKDIR/archives/${APP_KEY}/documents
-      - lang:$APP_WORKDIR/archives/${APP_KEY}/cfg/lang
     networks:
       internal:
     depends_on:
