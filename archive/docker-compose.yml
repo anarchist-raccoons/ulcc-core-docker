@@ -38,6 +38,9 @@ services:
         APP_SOURCE: ${APP_SOURCE}
         EXTERNAL_HOSTNAME: ${EXTERNAL_HOSTNAME}
         SSH_PRIVATE_KEY_PATH: ${SSH_PRIVATE_KEY_PATH}
+        ADMIN_USER: ${ADMIN_USER}
+        ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+        ADMIN_EMAIL: ${ADMIN_EMAIL}
     env_file:
       - .env
     volumes:

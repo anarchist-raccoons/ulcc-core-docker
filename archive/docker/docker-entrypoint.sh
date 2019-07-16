@@ -15,8 +15,9 @@ if [ ! -f /data/.initialized ]; then
   sed -i "s/changeme/$EXTERNAL_HOSTNAME/" /opt/eprints3/archives/$APP_KEY/cfg/cfg.d/10_core_$APP_KEY.pl
   su eprints -s ./bin/epadmin create_tables $APP_KEY
   su eprints -s ./bin/epadmin update $APP_KEY
-  su eprints -s ./bin/import_subjects $APP_KEY archives/$APP_KEY/cfg/subjects
-  
+  su eprints -s ./bin/import_subjects $APP_KEY archives/$APP_KEY/cfg/subjects  
+echo "Creating user accoutn for $ADMIN_USER..."
+  su eprints -s ./bin/epadmin create_user $APP_KEY $ADMIN_USER admin $ADMIN_PASSWORD $ADMIN_EMAIL
   touch /data/.initialized
 else
   echo 'Repo already initialized.'
@@ -24,6 +25,7 @@ fi
 
 # the extra -- stop su doesn't trying to parse additional arguments
 su eprints -s ./bin/generate_apacheconf -- --system --replace
+echo "ErrorLog /usr/local/apache2/logs/error.log" | tee -a /usr/local/apache2/conf/httpd.conf >/dev/null
 echo "Include /opt/eprints3/cfg/apache.conf" | tee -a /usr/local/apache2/conf/httpd.conf >/dev/null
 
 su eprints -s ./bin/generate_static $APP_KEY
