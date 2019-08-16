@@ -36,10 +36,15 @@ WORKDIR $APP_WORKDIR
 
 COPY --from=intermediate $APP_WORKDIR/archives $APP_WORKDIR/archives
 
+#Change the apache User and Group to eprints
+RUN sed -i "s/User daemon/User $EPUSER/" /usr/local/apache2/conf/httpd.conf
+RUN sed -i "s/Group daemon/Group $EPUSER/" /usr/local/apache2/conf/httpd.conf
+
 COPY docker/docker-entrypoint.sh /bin/
 RUN chmod +x /bin/docker-entrypoint.sh
 
 RUN chown -R $EPUSER:$EPUSER $APP_WORKDIR
+
 USER $EPUSER
 RUN tools/epm link_lib meprints
 RUN tools/epm link_lib reports
