@@ -1,8 +1,9 @@
 version: '3.3'
 
 volumes:
-  data:
   mariadb:
+  data:
+  documents:
 
 networks:
   internal:
@@ -44,7 +45,8 @@ services:
     env_file:
       - .env
     volumes:
-      - data:$APP_WORKDIR/archives/${APP_KEY}/documents
+      - data:/data
+      - documents:/opt/eprints3/archives/${APP_KEY}/documents
     networks:
       internal:
     depends_on:
