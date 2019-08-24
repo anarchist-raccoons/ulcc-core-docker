@@ -38,12 +38,12 @@ su eprints -s ./bin/generate_static $APP_KEY
 su eprints -s ./bin/generate_views $APP_KEY
 su eprints -s ./bin/indexer start
 
-# Restore files to cfg/lang/*
-cp -r  /data/lang/* /opt/eprints3/archives/$APP_KEY/cfg/lang/
+# Restore web editable phrase file to cfg/lang/*
+cp -r  /data/zz_webcfg.xml /opt/eprints3/archives/$APP_KEY/cfg/lang/phrases/
 chown -R eprints:eprints /opt/eprints3/archives/$APP_KEY/cfg/lang/
 
 # Backup the files from cfg/lang hourly
-(crontab -l ; echo "*/60 * * * * cp -r /opt/eprints3/archives/$APP_KEY/cfg/lang /data/" ) | crontab -
+(crontab -l ; echo "*/60 * * * * cp -r /opt/eprints3/archives/$APP_KEY/cfg/lang/phrases/zz_webcfg.xml /data/" ) | crontab -
 service cron restart
 
 echo "Starting apache"
