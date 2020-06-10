@@ -28,14 +28,19 @@ module "kubernetes_eprints" {
   cluster_ca_certificate = "${module.azure_kubernetes.cluster_ca_certificate}"
   docker_image = "${module.azure_kubernetes.azure_container_registry_name}.azurecr.io/eprints/${var.name}"
   app_name = "eprints"
+  secondary_volume_name = "letsencrypt"
+
   primary_mount_path = "/opt/eprints3/archives/${var.name}/documents/disk0"
-  # secondary_mount_path = "/opt/eprints3/archives/${var.name}/cfg/lang"
-  secondary_mount_path = "/data"
+  secondary_mount_path = "/etc/letsencrypt"
   pvc_claim_name = "${module.kubernetes_pvc_eprints.pvc_claim_name}"
-  port = 80
+  secondary_pvc_claim_name = "${module.kubernetes_pvc_letsencrypt.pvc_claim_name}"
+
+  primary_port = "${var.primary_port}"
+  secondary_port = "${var.secondary_port}"
   image_pull_secrets = "${module.kubernetes_secret_docker.kubernetes_secret_name}"
   env_from = "${module.kubernetes_secret_env.kubernetes_secret_name}"
-  load_balancer_source_ranges = "${var.developer_access}"
+  load_balancer_source_ranges = "${var.user_access}"
+#  load_balancer_source_ranges = "${var.developer_access}"
   load_balancer_ip = "${module.terraform_azure_public_ip_eprints.public_ip}"
   command = ["/bin/bash","-ce", "/bin/docker-entrypoint.sh"]
   # Creates a dependency on mariadb
@@ -106,3 +111,20 @@ module "kubernetes_pvc_eprints" {
   volume = "eprints"
 
 }
+
+# Add an azuredisk just for letsencrypt certicifactes as they need persistence *and* symlinks
+module "kubernetes_pvc_letsencrypt" {
+  source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_pvc.git?ref=master"
+
+  host = "${module.azure_kubernetes.host}"
+  username = "${module.azure_kubernetes.username}"
+  password = "${module.azure_kubernetes.password}"
+  client_certificate = "${module.azure_kubernetes.client_certificate}"
+  client_key = "${module.azure_kubernetes.client_key}"
+  cluster_ca_certificate = "${module.azure_kubernetes.cluster_ca_certificate}"
+  
+  volume= "letsencrypt"
+  storage_class_name = "azuredisk"
+
+}
+
