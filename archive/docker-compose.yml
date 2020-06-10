@@ -4,6 +4,7 @@ volumes:
   mariadb:
   data:
   documents:
+  letsencrypt:
 
 networks:
   internal:
@@ -17,8 +18,10 @@ services:
     env_file:
       - .env
     environment:
-      - MYSQL_DATABASE=${APP_KEY}
-      - MYSQL_USER=${APP_KEY}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", 'mysqlshow -h mariadb -u $APP_KEY -p$MYSQL_PASSWORD $APP_KEY']
       interval: 30s
@@ -42,16 +45,24 @@ services:
         ADMIN_USER: ${ADMIN_USER}
         ADMIN_PASSWORD: ${ADMIN_PASSWORD}
         ADMIN_EMAIL: ${ADMIN_EMAIL}
+        ENVIRONMENT: ${ENVIRONMENT}
     env_file:
       - .env
     volumes:
       - data:/data
       - documents:/opt/eprints3/archives/${APP_KEY}/documents
+      - letsencrypt:/etc/letsencrypt
     networks:
       internal:
     depends_on:
       - mariadb
     expose: 
       - 80
+      - 443
     ports:
       - 80:80
+      - 443:443
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192

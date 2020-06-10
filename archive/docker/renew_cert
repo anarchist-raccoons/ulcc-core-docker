@@ -1,0 +1,3 @@
+#!/bin/bash
+
+certbot -n certonly -d #EXTERNAL_HOSTNAME# --apache --agree-tos --email #ADMIN_EMAIL# --post-hook="httpd -DFOREGROUND -k graceful"

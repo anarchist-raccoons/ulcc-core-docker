@@ -1,0 +1,4 @@
+dev=DEVELOPMENT
+prod=PRODUCTION
+uat=U.A.T.
+staging=STAGING

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+MODULE=$1
+
+sed -i "s/#LoadModule $MODULE/LoadModule $MODULE/" /usr/local/apache2/conf/httpd.conf

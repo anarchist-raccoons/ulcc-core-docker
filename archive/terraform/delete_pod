@@ -1,0 +1,92 @@
+#!/bin/bash
+
+bold=$(tput bold)
+normal=$(tput sgr0)
+
+declare -A allowed_env=( 
+ [prod]=1  [uat]=1  [dev]=1
+)
+
+function valid_ip {
+
+  local  ip=$1
+
+  if expr "$ip" : '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$' >/dev/null; then
+    IFS=.
+    set $ip
+    for quad in 1 2 3 4; do
+      if eval [ \$$quad -gt 255 ]; then
+        return 0
+      fi
+    done
+    return 1
+  else
+    return 0
+  fi
+}
+
+APP_KEY=$1
+POD=$2
+ENVIRONMENT=${3:-dev}
+
+echo "Reading from ../../../builds/$APP_KEY-$ENVIRONMENT/.env"
+export $(egrep -v '^#' ../../../builds/$APP_KEY-$ENVIRONMENT/.env | xargs)
+
+CLUSTER="leaf-$ENVIRONMENT-$APP_KEY"
+KUBE_CLUSTER="$(kubectl config use-context $CLUSTER  2>&1)"
+
+if [[ $KUBE_CLUSTER =~ ^error(.*) ]]; then
+
+  while true; do
+    read -p "$CLUSTER not conifgured for kubectl, Shall we try to configure a context for $CLUSTER?" yn
+    case $yn in
+        [Yy]* ) az aks get-credentials --resource-group $CLUSTER --name $CLUSTER; break;;
+        [Nn]* ) echo "OK then bye"; exit;;
+        * ) echo "Please answer yes or no.";;
+    esac
+  done
+fi
+
+#################################################################################
+# If we ever wanted to assign a role to a resource from here... this is one way
+################################################################################
+
+#  # Get the resource ID of your AKS cluster
+#  AKS_CLUSTER=$(az aks show --resource-group $CLUSTER --name $CLUSTER --query id -o tsv)
+#
+#  # Get the account credentials for the logged in user
+#  ACCOUNT_UPN=$(az account show --query user.name -o tsv)
+#  ACCOUNT_ID=$(az ad user show --id $ACCOUNT_UPN --query objectId -o tsv)
+
+#  echo -e "We will now assign the Cluster Admin role for\n\t user: ${bold}$ACCOUNT_UPN${normal}\n\t cluster: ${bold}$AKS_CLUSTER${normal}\n\t resource-group/cluster-name: ${bold}$CLUSTER${normal}\n"
+
+    # Assign the 'Cluster Admin' role to the user
+#    az role assignment create \
+#      --assignee $ACCOUNT_ID \
+#      --scope $AKS_CLUSTER \
+#      --role "Azure Kubernetes Service Cluster Admin Role"
+
+#####################################################################################
+
+# kubectl get pods --namespace default
+if [ $POD == "evicted" ]; then
+   [[ ! -z "$(kubectl get pods --namespace default --no-headers=true | grep Evicted)" ]] && kubectl get pods --namespace default --no-headers=true | grep Evicted | awk '{print $1}' | xargs kubectl delete -n default pod
+else
+    # Get and delete the $POD pod(s)
+    kubectl get pods --namespace default --no-headers=true | awk -v pat="$POD" '$0~pat {print $1}' | xargs kubectl delete -n default pod 
+fi
+
+# Show regenned pods after deletion
+echo "## ${bold}Current PODS displayed below${normal} ##"
+kubectl get pods --namespace default
+
+#while true; do
+#    read -p "Delete pods (starting with $container_id)?" yn
+#    case $yn in
+#        [Yy]* ) kubectl get pods --namespace $namespace --no-headers=true | awk -v pat="$container_id" '$0~pat {print $1}' | xargs kubectl delete -n $namespace pod ; break;;
+#        [Nn]* ) exit;;
+#        * ) echo "Please answer yes or no.";;
+#    esac
+#done
+
+#kubectl get pods --namespace $namespace

@@ -1,0 +1,86 @@
+#!/bin/bash
+
+red="\033[0;31m"
+green="\033[0;32m"
+normal="\033[0m"
+bold="\033[1m"
+
+print_ok="[${green}OK${normal}]"
+print_fail="[${red}FAIL${normal}]"
+
+
+declare -A allowed_env=( 
+ [prod]=1  [uat]=1  [dev]=1
+)
+
+declare -A allowed_action=( 
+ [status]=1 [start]=1  [stop]=1
+)
+
+APP_KEY=$1
+ENVIRONMENT=$2
+
+[ -z "$ENVIRONMENT" ] && echo "No action (start|stop)?" && exit;
+
+# Allow default to dev
+if [ ! -n "${allowed_env[$ENVIRONMENT]}" ]; then
+    ENVIRONMENT="dev"
+    ACTION=$2
+else
+    ACTION=$3
+fi
+
+[ ! -n "${allowed_action[$ACTION]}" ] && echo "Unrecognised action $ACTION" && exit;
+
+
+ClusterName="leaf-$ENVIRONMENT-$APP_KEY"
+ResourceGroup=$ClusterName
+# TODO make Location dynamic?
+Location="northeurope"
+
+vmssResourceGroup="MC_${ResourceGroup}_${ClusterName}_${Location}"
+
+# List all VM scale sets... we only have one at mo so... (TODO split and loop)
+vmssNameFull=$(az vmss list --resource-group $vmssResourceGroup --query "[].id" -o tsv)
+vmssName="${vmssNameFull##/*/}"
+
+function status {
+    if [ $(kubectl get deployment --no-headers eprints | awk '{print $4}') == "1" ]; then
+        echo -e "Cluster ${bold}$ClusterName${normal} is ${green}${bold}UP${normal} and EPrints deployment ${green}${bold}is available${normal}"
+        return 1
+    else
+        echo -e "Cluster ${bold}$ClusterName${normal} is ${red}${bold}DOWN${normal} and EPrints deployment ${red}${bold}is not available${normal}"
+        return 0
+    fi
+}
+
+function stop {
+    status
+    [ $? == "0" ] && echo "Not stopping cluster is already down" && return;
+    echo -e "We will now ${bold}$ACTION${normal} (deallocate) VM Scale Set $vmssName in Resource Group $vmssResourceGroup"
+    while true; do
+      read -p "OK?" yn
+      case $yn in
+          [Yy]* ) az vmss deallocate --resource-group $vmssResourceGroup --name $vmssName; break;;
+          [Nn]* ) exit;;
+          * ) echo "Please answer yes or no.";;
+      esac
+    done
+}
+
+function start {
+    status
+    [ $? == "1" ] && echo "Not starting cluster is already up" && return;
+    echo -e "We will now ${bold}$ACTION${normal} VM Scale Set $vmssName in Resource Group $vmssResourceGroup"
+    while true; do
+      read -p "OK?" yn
+      case $yn in
+          [Yy]* ) az vmss start --resource-group $vmssResourceGroup --name $vmssName; break;;
+          [Nn]* ) exit;;
+          * ) echo "Please answer yes or no.";;
+      esac
+    done
+}
+
+$ACTION
+

@@ -1,0 +1,39 @@
+#!/usr/bin/perl
+use Term::ANSIColor;
+use LWP::Simple;
+
+use strict;
+
+
+sub check_mod {
+        my ($mod) = @_;
+        eval "use $mod; 1";
+        return 1 if !$@;
+        return 0;
+}
+sub print_ok {
+        my $str = "[";
+        $str.= color('bold green');
+        $str.="OK";
+        $str.= color('reset');
+        $str.="]";
+        return $str;
+
+}
+sub print_fail {
+        my $str = "[";
+        $str.= color('bold red');
+        $str.= "FAIL";
+        $str.= color('reset');
+        $str.= "]";
+        return $str;
+}
+my @reqs = split /\n/, get("https://raw.githubusercontent.com/eprintsug/ulcc-core/master/required.txt");
+
+for my $mod (@reqs){
+  if(check_mod($mod)){
+        printf "%-50s %s \n", $mod,print_ok;
+  }else{
+        printf "%-50s %s \n", $mod,print_fail;
+  }
+}

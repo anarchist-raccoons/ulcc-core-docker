@@ -1,0 +1,101 @@
+#!/bin/bash
+
+function plan() {
+  # plan (actually a targetted plan for null_resource.build only)
+  terraform plan -out=../../../builds/$repo-$environment/$repo-$environment.tfplan -var-file=../../../builds/$repo-$environment/terraform.tfvars -state=../../../builds/$repo-$environment/terraform.tfstate -target null_resource.build
+}
+
+function plan_all() {
+  # plan_all (plan the lot)
+  terraform plan -out=../../../builds/$repo-$environment/$repo-$environment.tfplan -var-file=../../../builds/$repo-$environment/terraform.tfvars -state=../../../builds/$repo-$environment/terraform.tfstate
+}
+
+function apply() {
+  # apply
+  terraform apply -state-out=../../../builds/$repo-$environment/terraform.tfstate "../../../builds/$repo-$environment/$repo-$environment.tfplan"
+}
+
+function destroy() {
+  # destroy
+  terraform plan -destroy -out=../../../builds/$repo-$environment/$repo-$environment.tfplan -var-file=../../../builds/$repo-$environment/terraform.tfvars -state=../../../builds/$repo-$environment/terraform.tfstate
+}
+
+function refresh() {
+  # refresh
+  terraform refresh -var-file=../../../builds/$repo-$environment/terraform.tfvars -state=../../../builds/$repo-$environment/terraform.tfstate
+}
+
+function taint() {
+  # taint (for example, having rebuilt the image, re-push)
+  terraform taint -state=../../../builds/$repo-$environment/terraform.tfstate null_resource.build
+
+}
+
+function go() {
+  # taint (for example, having rebuilt the image, re-push)
+  taint
+  plan
+  #CHECK and APPLY
+  while true; do
+    read -p "Shall we apply this plan?" yn
+    case $yn in
+        [Yy]* ) apply; break;;
+        [Nn]* ) exit;;
+        * ) echo "Please answer yes or no.";;
+    esac
+  done
+}
+
+function go_all() {
+  # taint (for example, having rebuilt the image, re-push)
+  taint
+  plan_all
+  #CHECK and APPLY
+  while true; do
+    read -p "Shall we apply this plan?" yn
+    case $yn in
+        [Yy]* ) apply; break;;
+        [Nn]* ) exit;;
+        * ) echo "Please answer yes or no.";;
+    esac
+  done
+
+}
+
+action=$1
+repo=$2
+environment=${3:-dev}
+
+
+if [ -z "$repo" ] ; then
+  echo Please tell me which repo to $action
+  exit
+fi
+
+if [ ! -f ../../../builds/$repo-$environment/terraform.tfvars ] ; then
+        echo "There is no terraform.tfvars file in ../../../builds/$repo-$environment"
+        exit
+else
+        echo "Using terraform configration from ../../../builds/$repo-$environment"
+fi
+
+
+declare -A allowed_actions=( 
+ [plan]=1  [taint]=1  [apply]=1 [destroy]=1 [refresh]=1 [plan_all]=1 [go]=1 [go_all]=1
+)
+
+[[ ! -n "${allowed_actions[$action]}" ]] && printf '%s is not allowed\n' "$action" && exit
+
+# Temporarily put a copy of the .env file somewhere that terraform can reference it without relative rigmarole
+cp ../../../builds/$repo-$environment/.env ../
+
+echo "Reading from ../../../builds/$repo-$environment/.env"
+export $(egrep -v '^#' ../../../builds/$repo-$environment/.env | xargs)
+sed -i "s/^EXTERNAL_HOSTNAME=$/EXTERNAL_HOSTNAME=$EXTERNAL_HOSTNAME/" ../.env
+
+# Do whatever has been asked of us
+$action
+
+# Remove the temporary local .env file when done
+rm ../.env
+
