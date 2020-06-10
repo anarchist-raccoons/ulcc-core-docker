@@ -47,5 +47,8 @@ variable "user_access" {
   type = "list"
 }
 
+variable "primary_port" { }
+variable "secondary_port" { }
+
 variable "zone_name" { }
 variable "zone_resource_group" { }
