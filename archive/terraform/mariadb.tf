@@ -1,6 +1,6 @@
 # mariadb
 module "kubernetes_mariadb" {
-  source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_deployment.git?ref=master"
+  source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_deployment_simple.git?ref=master"
 
   host = "${module.azure_kubernetes.host}"
   username = "${module.azure_kubernetes.username}"
@@ -11,15 +11,13 @@ module "kubernetes_mariadb" {
   
   docker_image = "mariadb:10.4"
   app_name = "mariadb"
-  
-  primary_mount_path = "/var/lib/mysql"
-  secondary_mount_path = "/data" # this isn't used or needed
-  secondary_sub_path = "unused"
+ 
+  mount_path = "/var/lib/mysql"
   pvc_claim_name = "${module.kubernetes_pvc_mariadb.pvc_claim_name}"
+
   # load_balancer_source_ranges = "${var.developer_access}"
   service_type = "ClusterIP"
-  
-  port = 3306
+  port = "3306"
   image_pull_secrets = "${module.kubernetes_secret_docker.kubernetes_secret_name}"
   env_from = "${module.kubernetes_secret_env.kubernetes_secret_name}"
 
