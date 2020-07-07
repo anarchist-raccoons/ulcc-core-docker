@@ -36,7 +36,7 @@ else
 	shift; shift
 fi
 
-[ -z "$@" ] && echo "No docker-compose command?" && exit;
+#[ -z "$@" ] && echo "No docker-compose command?" && exit;
 
 [ ! -f ../../builds/$APP_KEY-$ENVIRONMENT/.env ] && echo "no .env file found at ../../builds/$APP_KEY-$ENVIRONMENT/" && exit;
 
