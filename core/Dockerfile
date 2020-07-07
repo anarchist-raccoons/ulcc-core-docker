@@ -51,6 +51,7 @@ RUN apt-get update -qq \
    perl \
    psutils \
    python-certbot-apache \
+   rsyslog \
    sudo \
    tar \
    texlive-base \
