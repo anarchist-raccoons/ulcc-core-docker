@@ -42,6 +42,9 @@ WORKDIR $APP_WORKDIR
 
 COPY --from=intermediate $APP_WORKDIR/archives $APP_WORKDIR/archives
 
+# Turn on cron logging
+RUN sed -i "s/^#cron/cron/" /etc/rsyslog.conf
+
 # Copy ssl conf into place
 COPY docker/eprints-ssl.conf /usr/local/apache2/conf/
 
