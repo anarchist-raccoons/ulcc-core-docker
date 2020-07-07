@@ -15,6 +15,9 @@ print_fail="[${red}FAIL${normal}]"
 
 echo -e "---- ${bold}Running the docker-entrypoint${normal} ----"
 
+# Start syslog
+service rsyslog start
+
 # Check the db exists ...
 while ! mysqlshow -h mariadb -u $APP_KEY -p$MYSQL_PASSWORD $APP_KEY >/dev/null 2>&1; do
   echo 'Waiting for db ... '
@@ -45,6 +48,7 @@ fi
 # TODO rather than leaving an init stub thinging, we could check mariadb:mysql for an $APP_KEY database that has an eprints table
 # if there is one... we are initialized. This will mean we can re-init the database and the eprints container won't get confuddled by no DB
 # or maybe the .initialized stub is the best way ?
+#echo "if [ ! mysqlshow -h mariadb -u $APP_KEY -p$MYSQL_PASSWORD $APP_KEY eprint ]; then "
 if [ ! $(mysqlshow -h mariadb -u $APP_KEY -p$MYSQL_PASSWORD $APP_KEY eprint) ]; then 
 #if [ ! -f /data/.initialized ]; then
   echo -e "-- ${bold}Initialising repo${normal} --"
