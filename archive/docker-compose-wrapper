@@ -27,18 +27,18 @@ function valid_ip {
 APP_KEY=$1
 ENVIRONMENT=$2
 
-[ -z "$ENVIRONMENT" ] && echo "No docker-compose command?" && exit;
+[ -z "$ENVIRONMENT" ] && echo "No docker-compose command?" && exit
 
 if [ ! -n "${allowed_env[$ENVIRONMENT]}" ]; then
-	ENVIRONMENT="dev"
-	shift
+        ENVIRONMENT="dev"
+        shift
 else
-	shift; shift
+        shift; shift
 fi
 
 #[ -z "$@" ] && echo "No docker-compose command?" && exit;
 
-[ ! -f ../../builds/$APP_KEY-$ENVIRONMENT/.env ] && echo "no .env file found at ../../builds/$APP_KEY-$ENVIRONMENT/" && exit;
+[ ! -f ../../builds/$APP_KEY-$ENVIRONMENT/.env ] && echo "no .env file found at ../../builds/$APP_KEY-$ENVIRONMENT/" && exit
 
 echo "Reading from ../../builds/$APP_KEY-$ENVIRONMENT/.env"
 export $(egrep -v '^#' ../../builds/$APP_KEY-$ENVIRONMENT/.env | xargs)
@@ -46,26 +46,30 @@ export $(egrep -v '^#' ../../builds/$APP_KEY-$ENVIRONMENT/.env | xargs)
 # Temporarily put a copy of the .env file somewhere that terraform can reference it without relative rigmarole
 cp ../../builds/$APP_KEY-$ENVIRONMENT/.env ./
 
-sed -i "s/^EXTERNAL_HOSTNAME=$/EXTERNAL_HOSTNAME=$EXTERNAL_HOSTNAME/" ./.env
-
-# Do we have an IP (will need self-signed certs) or a domain (can use certbot)
+# Do we have an IP or localhost (will need self-signed certs) or a domain (can use certbot)
 # Or do we wish to force our own domains (dev, uat, etc)
 
 valid_ip $EXTERNAL_HOSTNAME
 HOSTNAME_IS_IP=$?
-# Export the flag (may need copied t .env for proper builds)
+
+# If EXTERNAL_HOSTNAME is localhost we assume a dev environment to run lots of containers we'll prepend the APP_KEY as sub-domains
+# Also set HOSTNAME_IS_IP to 1 so that self-signed certs are generated
+if [ $EXTERNAL_HOSTNAME == "localhost" ]; then
+   HOSTNAME_IS_IP=1
+   EXTERNAL_HOSTNAME="$APP_KEY.localhost"
+ fi
+
+# Export the flag (may need copied to .env for proper builds)
 export HOSTNAME_IS_IP=$HOSTNAME_IS_IP
+sed -i "s/^HOSTNAME_IS_IP=$/HOSTNAME_IS_IP=$HOSTNAME_IS_IP/" ./.env
 
 if [ -z "$EXTERNAL_HOSTNAME" ]; then
   export EXTERNAL_HOSTNAME=$APP_KEY-$ENVIRONMENT.leaf.cosector.com
 fi
 
-echo "hostname: $EXTERNAL_HOSTNAME (ip? $HOSTNAME_IS_IP)"
+sed -i "s/^EXTERNAL_HOSTNAME=.*$/EXTERNAL_HOSTNAME=$EXTERNAL_HOSTNAME/" ./.env
 
+echo "hostname: $EXTERNAL_HOSTNAME (ip? $HOSTNAME_IS_IP)"
 echo "Running docker-compose $@"
 exec docker-compose $@
 
-# I don't think we ever make it here..?
-echo "post build .env rm"
-# Remove the temporary local .env file when done
-rm ./.env
