@@ -19,7 +19,7 @@ echo -e "---- ${bold}Running the docker-entrypoint${normal} ----"
 service rsyslog start
 
 # Check the db exists ...
-while ! mysqlshow -h mariadb -u $APP_KEY -p$MYSQL_PASSWORD $APP_KEY >/dev/null 2>&1; do
+while ! mysqlshow -h mariadb -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE >/dev/null 2>&1; do
   echo 'Waiting for db ... '
   sleep 1
 done
@@ -49,7 +49,7 @@ fi
 # if there is one... we are initialized. This will mean we can re-init the database and the eprints container won't get confuddled by no DB
 # or maybe the .initialized stub is the best way ?
 #echo "if [ ! mysqlshow -h mariadb -u $APP_KEY -p$MYSQL_PASSWORD $APP_KEY eprint ]; then "
-if [ ! $(mysqlshow -h mariadb -u $APP_KEY -p$MYSQL_PASSWORD $APP_KEY eprint) ]; then 
+if [ ! $(mysqlshow -h mariadb -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE eprint) ]; then 
 #if [ ! -f /data/.initialized ]; then
   echo -e "-- ${bold}Initialising repo${normal} --"
   su eprints -s ./bin/epadmin create_tables $APP_KEY
@@ -165,7 +165,7 @@ else
   staging=""
   ## Maybe we want staging certs for dev instances? but they will use a FAKE CA and not really allow us to test stuff properly
   ## Perhaps when letsencrypt start issuing certs for IPs we should modify the above so that --staging is used with certbot when HOSTNAME_IS_IP?
-#  [ $ENVIRONMENT == "dev" ] && staging="--staging"
+  [ $HOSTNAME_IS_IP || $EXTERNAL_HOSTNAME == "localhost" ] && staging="--staging"
 
   # Correct cert on data volume in /data/pki/certs? We should be able to just bring apache up with ssl
   # If not...
@@ -182,9 +182,14 @@ else
       # In case these are somehow hanging around to wreck the symlinking
       [ -f  /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt ] && rm /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt
       [ -f  /etc/ssl/private/$EXTERNAL_HOSTNAME.key ] && rm /etc/ssl/private/$EXTERNAL_HOSTNAME.key
-      # Link cert and key to a location that our general apache config will knwo about
-      ln -s /etc/letsencrypt/live/base/fullchain.pem /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt
-      ln -s /etc/letsencrypt/live/base/privkey.pem /etc/ssl/private/$EXTERNAL_HOSTNAME.key
+
+      # Link cert and key to a location that our general apache config will know about
+      if [ -f /etc/letsencrypt/live/base/fullchain.pem ]; then
+        ln -s /etc/letsencrypt/live/base/fullchain.pem /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt
+        ln -s /etc/letsencrypt/live/base/privkey.pem /etc/ssl/private/$EXTERNAL_HOSTNAME.key
+      else
+        echo -e "${red}${bold}Certificate could not be obtained from letsencrypt using certbot!${normal}"
+      fi
 
       # Certbot starts apache as a service.... we have no need for this once the certificate is generated so let's stop it
       service apache2 stop
