@@ -2,7 +2,7 @@ version: '3.3'
 
 volumes:
   mariadb:
-  data:
+  var:
   documents:
   letsencrypt:
 
@@ -23,7 +23,7 @@ services:
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", 'mysqlshow -h mariadb -u $APP_KEY -p$MYSQL_PASSWORD $APP_KEY']
+      test: ["CMD-SHELL", 'mysqlshow -h mariadb -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE']
       interval: 30s
       timeout: 10s
       retries: 4
@@ -49,7 +49,7 @@ services:
     env_file:
       - .env
     volumes:
-      - data:/data
+      - var:/opt/eprints3/archives/${APP_KEY}/var
       - documents:/opt/eprints3/archives/${APP_KEY}/documents
       - letsencrypt:/etc/letsencrypt
     networks:

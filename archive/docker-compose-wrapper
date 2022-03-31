@@ -4,7 +4,7 @@ bold=$(tput bold)
 normal=$(tput sgr0)
 
 declare -A allowed_env=( 
- [prod]=1  [uat]=1  [dev]=1
+ [prod]=1  [uat]=1  [dev]=1 [train]=1 [demo]=1
 )
 
 function valid_ip {
@@ -40,8 +40,16 @@ fi
 
 [ ! -f ../../builds/$APP_KEY-$ENVIRONMENT/.env ] && echo "no .env file found at ../../builds/$APP_KEY-$ENVIRONMENT/" && exit
 
+if ls ../../builds/$APP_KEY-$ENVIRONMENT/migrate_* 1> /dev/null 2>&1; then
+#    echo "files do exist"
+    cp -u ../../builds/$APP_KEY-$ENVIRONMENT/migrate_* docker/
+else
+    touch docker/migrate_dummy
+fi
+
 echo "Reading from ../../builds/$APP_KEY-$ENVIRONMENT/.env"
-export $(egrep -v '^#' ../../builds/$APP_KEY-$ENVIRONMENT/.env | xargs)
+echo $(egrep -v '^#' ../../builds/$APP_KEY-$ENVIRONMENT/.env | xargs -d '\n')
+export $(egrep -v '^#' ../../builds/$APP_KEY-$ENVIRONMENT/.env | xargs -d '\n')
 
 # Temporarily put a copy of the .env file somewhere that terraform can reference it without relative rigmarole
 cp ../../builds/$APP_KEY-$ENVIRONMENT/.env ./
@@ -51,17 +59,28 @@ cp ../../builds/$APP_KEY-$ENVIRONMENT/.env ./
 
 valid_ip $EXTERNAL_HOSTNAME
 HOSTNAME_IS_IP=$?
-
+echo $EXTERNAL_HOSTNAME
+echo $HOSTNAME_IS_IP
+USE_SS_CERT=0
+if [ "$HOSTNAME_IS_IP" == 1 ]; then
+   echo "here1"
+   USE_SS_CERT=1
+fi
 # If EXTERNAL_HOSTNAME is localhost we assume a dev environment to run lots of containers we'll prepend the APP_KEY as sub-domains
 # Also set HOSTNAME_IS_IP to 1 so that self-signed certs are generated
-if [ $EXTERNAL_HOSTNAME == "localhost" ]; then
-   HOSTNAME_IS_IP=1
+if [ "$EXTERNAL_HOSTNAME"  == "localhost" ]; then
+   echo "here2"
+   USE_SS_CERT=1
    EXTERNAL_HOSTNAME="$APP_KEY.localhost"
  fi
 
+## Export the flag (may need copied to .env for proper builds)
+#export HOSTNAME_IS_IP=$HOSTNAME_IS_IP
+#sed -i "s/^HOSTNAME_IS_IP=$/HOSTNAME_IS_IP=$HOSTNAME_IS_IP/" ./.env
+
 # Export the flag (may need copied to .env for proper builds)
-export HOSTNAME_IS_IP=$HOSTNAME_IS_IP
-sed -i "s/^HOSTNAME_IS_IP=$/HOSTNAME_IS_IP=$HOSTNAME_IS_IP/" ./.env
+export USE_SS_CERT=$USE_SS_CERT
+sed -i "s/^USE_SS_CERT=.*$/USE_SS_CERT=$USE_SS_CERT/" ./.env
 
 if [ -z "$EXTERNAL_HOSTNAME" ]; then
   export EXTERNAL_HOSTNAME=$APP_KEY-$ENVIRONMENT.leaf.cosector.com
@@ -69,7 +88,10 @@ fi
 
 sed -i "s/^EXTERNAL_HOSTNAME=.*$/EXTERNAL_HOSTNAME=$EXTERNAL_HOSTNAME/" ./.env
 
-echo "hostname: $EXTERNAL_HOSTNAME (ip? $HOSTNAME_IS_IP)"
-echo "Running docker-compose $@"
-exec docker-compose $@
-
+echo "hostname: $EXTERNAL_HOSTNAME (ip? $HOSTNAME_IS_IP, ss_cert? $USE_SS_CERT)"
+if [ $# == 1 ] && [ $@ == "env" ]; then
+    echo "Just generating .env file for now"
+else
+   echo "Running docker-compose $@"
+   exec docker-compose $@
+fi

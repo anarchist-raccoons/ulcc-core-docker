@@ -19,7 +19,7 @@ echo -e "---- ${bold}Running the docker-entrypoint${normal} ----"
 service rsyslog start
 
 # Check the db exists ...
-while ! mysqlshow -h mariadb -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE >/dev/null 2>&1; do
+while ! mysqlshow -h mariadb -u root -p$MYSQL_ROOT_PASSWORD >/dev/null 2>&1; do
   echo 'Waiting for db ... '
   sleep 1
 done
@@ -45,23 +45,38 @@ if [ -f /opt/eprints3/archives/$APP_KEY/cfg/cfg.d/10_core_$ENVIRONMENT.pl ]; the
   sed -i "s/changeme/$EXTERNAL_HOSTNAME/" /opt/eprints3/archives/$APP_KEY/cfg/cfg.d/10_core_$ENVIRONMENT.pl
 fi
 
+
 # TODO rather than leaving an init stub thinging, we could check mariadb:mysql for an $APP_KEY database that has an eprints table
 # if there is one... we are initialized. This will mean we can re-init the database and the eprints container won't get confuddled by no DB
 # or maybe the .initialized stub is the best way ?
-#echo "if [ ! mysqlshow -h mariadb -u $APP_KEY -p$MYSQL_PASSWORD $APP_KEY eprint ]; then "
-if [ ! $(mysqlshow -h mariadb -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE eprint) ]; then 
-#if [ ! -f /data/.initialized ]; then
+if [[ ! $(mysqlshow -h mariadb -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE eprint) ]]; then 
   echo -e "-- ${bold}Initialising repo${normal} --"
-  su eprints -s ./bin/epadmin create_tables $APP_KEY
-  su eprints -s ./bin/epadmin update $APP_KEY
-  echo -e "Creating user account for $ADMIN_USER..."
-  su eprints -s ./bin/epadmin create_user $APP_KEY $ADMIN_USER admin $ADMIN_PASSWORD $ADMIN_EMAIL
+
+  # We have some sql to import...
+  if [ -f /var/tmp/migrate_$APP_KEY.sql ]; then
+     echo "Importing database from /var/tmp/migrate_$APP_KEY.sql"
+     #TODO see if we can run 'source /var/tmp/migrate_$APP_KEY.sql' to import the database
+     mysql -h mariadb -u $MYSQL_USER -p$MYSQL_PASSWORD --default-character-set=utf8mb4 $MYSQL_DATABASE < /var/tmp/migrate_$APP_KEY.sql
+     su eprints -s ./bin/epadmin update $APP_KEY
+  else
+     su eprints -s ./bin/epadmin create_tables $APP_KEY
+     su eprints -s ./bin/epadmin update $APP_KEY
+     echo -e "Creating user account for $ADMIN_USER..."
+     su eprints -s ./bin/epadmin create_user $APP_KEY $ADMIN_USER admin $ADMIN_PASSWORD $ADMIN_EMAIL
+  fi
+  # We have some docs to import
+  if [ -f /var/tmp/migrate_docs_$APP_KEY.tar.gz ]; then
+     echo "Importing docs from /var/tmp/migrate_docs_$APP_KEY.tar.gz"
+     tar xzf /var/tmp/migrate_docs_$APP_KEY.tar.gz -C /opt/eprints3/archives/$APP_KEY/documents/disk0
+  fi
+
+#  su eprints -s ./bin/epadmin update $APP_KEY
   # copy the default subjects if none in archives/$APP_KEY
   if [ ! -f ./archives/$APP_KEY/cfg/subjects ]; then
     su eprints -s /bin/cp ./lib/defaultcfg/subjects ./archives/$APP_KEY/cfg/subjects -- --force
   fi
   # And import subjects
-  su eprints -s ./bin/import_subjects $APP_KEY ./archives/$APP_KEY/cfg/subjects
+  su eprints -s ./bin/import_subjects $APP_KEY ./archives/$APP_KEY/cfg/subjects -- --force
 #  touch /data/.initialized
   printf "%-50s $print_ok \n" "Repo initialised";
 else
@@ -69,9 +84,14 @@ else
 fi
 
 ########################################
-# Set up environment labelling
+# Set up for non-production environments
 ########################################
+
 if [ $ENVIRONMENT != "prod" ]; then
+
+  ########################################
+  # Set up environment labelling
+  ########################################
   # Create js and css dirs here in case they are not already there 
   [ -d  ./archives/$APP_KEY/cfg/static/style/auto ] || mkdir -p ./archives/$APP_KEY/cfg/static/style/auto
   [ -d  ./archives/$APP_KEY/cfg/static/javascript/auto ] || mkdir -p ./archives/$APP_KEY/cfg/static/javascript/auto
@@ -86,6 +106,11 @@ if [ $ENVIRONMENT != "prod" ]; then
   # Insert into the environment ribbon js file
   sed -i "s/#ENVIRONMENT#/$ENVIRONMENT/g" ./archives/$APP_KEY/cfg/static/javascript/auto/999_env_ribbon.js
   sed -i "s/#ENVIRONMENT_TEXT#/$environment_text/g" ./archives/$APP_KEY/cfg/static/javascript/auto/999_env_ribbon.js
+
+  ########################################
+  # Turn off shibboleth authentication
+  ########################################
+  mv /var/tmp/z_no_shibb.pl ./archives/$APP_KEY/cfg/cfg.d/
 
 fi
 
@@ -130,6 +155,73 @@ chown -R eprints:eprints /opt/eprints3/archives/$APP_KEY/cfg/lang/
 # restart cron
 service cron restart
 
+#Include the apache:80 config (used only for letsencryp and redirecting to 433
+if [[ ! $(grep "Include /usr/local/apache2/conf/apache_80.conf" /usr/local/apache2/conf/httpd.conf) ]]; then echo "Include /usr/local/apache2/conf/apache_80.conf" | tee -a /usr/local/apache2/conf/httpd.conf >/dev/null; fi
+
+# For now $USE_SS_CERT will control whether or not to use a self-signed certificate or get one from letsencrypt
+# letsenrypt won't work with IPs, or with domainnames without dots in then (eg localhost) or from behind a firewall even if we give the NSG the acme :@ (!!)
+if [ $USE_SS_CERT ]; then
+  echo -e "-- ${bold}Making self-signed certificates for local container ($EXTERNAL_HOSTNAME)${normal} --"
+  /bin/gen_cert.sh $EXTERNAL_HOSTNAME
+  if [ -f /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt ]; then
+    printf "%-50s $print_ok\n" "Certificates generated"
+  else
+    printf "%-50s $print_fail\n" "Certificates Could not be generated ($?)"
+  fi
+else
+  echo -e "-- ${bold}Obtaining certificates from letsencrypt using certbot ($EXTERNAL_HOSTNAME)${normal} --"
+  staging=""
+  ## Maybe we want staging certs for dev instances? but they will use a FAKE CA and not really allow us to test stuff properly
+  ## Perhaps when letsencrypt start issuing certs for IPs we should modify the above so that --staging is used with certbot when HOSTNAME_IS_IP?
+  #[ $ENVIRONMENT == "dev" ] && staging="--staging"
+ 
+  mkdir -p /var/www/acme-docroot
+
+  # Correct cert on data volume in /data/pki/certs? We should be able to just bring apache up with ssl
+  # If not...
+  if [ ! -f /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt ]; then
+    # Lets encrypt has a cert but for some reason this has not been copied to where apache wants them
+    if [ -f /etc/letsencrypt/live/base/fullchain.pem ]; then
+      echo -e "Linking existing cert/key to /etc/ssl" 
+      ln -s /etc/letsencrypt/live/base/fullchain.pem /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt
+      ln -s /etc/letsencrypt/live/base/privkey.pem /etc/ssl/private/$EXTERNAL_HOSTNAME.key
+    else
+      # No cert here, We'll register and get one and store all the gubbins on the letsecnrypt volume (n.b. this needs to be an azuredisk for symlink reasons)
+#      /usr/local/bin/httpd-foreground
+      echo -e "Starting apache on :80 and getting new cert and linking cert/key to /etc/ssl"
+      /usr/local/apache2/bin/httpd -k start
+      mkdir -p /var/www/acme-docroot/
+      certbot certonly -n $staging --expand --webroot -w /var/www/acme-docroot/ --agree-tos --email $ADMIN_EMAIL --cert-name base -d $EXTERNAL_HOSTNAME
+      # In case these are somehow hanging around to wreck the symlinking
+      [ -f  /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt ] && rm /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt
+      [ -f  /etc/ssl/private/$EXTERNAL_HOSTNAME.key ] && rm /etc/ssl/private/$EXTERNAL_HOSTNAME.key
+
+      # Link cert and key to a location that our general apache config will know about
+      if [ -f /etc/letsencrypt/live/base/fullchain.pem ]; then
+        ln -s /etc/letsencrypt/live/base/fullchain.pem /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt
+        ln -s /etc/letsencrypt/live/base/privkey.pem /etc/ssl/private/$EXTERNAL_HOSTNAME.key
+      else
+        echo -e "${red}${bold}Certificate could not be obtained from letsencrypt using certbot!${normal}"
+      fi
+
+      #we have no need for this once the certificate is generated so let's stop it
+      /usr/local/apache2/bin/httpd -k stop
+    fi
+    printf "%-50s $print_ok\n" "Certificate obtained"; # hmmm... catch an error maybe?
+  else
+     printf "%-50s $print_ok\n" "Certificate already in place";
+  fi
+  echo -e "-- ${bold}Setting up auto renewal${normal} --"
+  # Remove this one as it is no good to us in this context
+  rm /etc/cron.d/certbot
+  # Add some evaluated variables 
+  sed -i "s/#EXTERNAL_HOSTNAME#/$EXTERNAL_HOSTNAME/" /var/tmp/renew_cert
+  sed -i "s/#ADMIN_EMAIL#/$ADMIN_EMAIL/" /var/tmp/renew_cert
+  # copy renew_script into cron.monthly (whould be frequent enough)
+  mv /var/tmp/renew_cert /etc/cron.monthly/renew_cert
+  printf "%-50s $print_ok\n" "renew_cert script moved to /etc/cron.monthly";
+fi
+
 ########################
 # Update apache config
 ########################
@@ -149,69 +241,10 @@ if [[ $(grep "Include /opt/eprints3/cfg/apache.conf" /usr/local/apache2/conf/htt
 else
   printf "%-50s $print_fail\n" "EPrints apahe.conf NOT included in httpd.conf"
 fi
-if [ $HOSTNAME_IS_IP ]; then
-  echo -e "-- ${bold}Making self-signed certificates for local container ($EXTERNAL_HOSTNAME)${normal} --"
-  /bin/gen_cert.sh $EXTERNAL_HOSTNAME
-  if [ -f /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt ]; then
-    printf "%-50s $print_ok\n" "Certificates generated"
-  else
-    printf "%-50s $print_fail\n" "Certificates Could not be generated ($?)"
-  fi
-else
-  echo -e "-- ${bold}Obtaining certificates from letsencrypt using certbot ($EXTERNAL_HOSTNAME)${normal} --"
-#  [ ! -d /data/letsencrypt ] && mkdir /data/letsencrypt
-#  [ ! -d /data/pki/certs ] && mkdir -p /data/pki/certs
-#  [ ! -d /data/pki/priv ] && mkdir -p /data/pki/priv
-  staging=""
-  ## Maybe we want staging certs for dev instances? but they will use a FAKE CA and not really allow us to test stuff properly
-  ## Perhaps when letsencrypt start issuing certs for IPs we should modify the above so that --staging is used with certbot when HOSTNAME_IS_IP?
-  [ $HOSTNAME_IS_IP || $EXTERNAL_HOSTNAME == "localhost" ] && staging="--staging"
-
-  # Correct cert on data volume in /data/pki/certs? We should be able to just bring apache up with ssl
-  # If not...
-  if [ ! -f /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt ]; then
-    # Lets encrypt has a cert but for some reason this has not been copied to where apache wants them
-    if [ -f /etc/letsencrypt/live/base/fullchain.pem ]; then
-      echo -e "Linking existing cert/key to /etc/ssl" 
-      ln -s /etc/letsencrypt/live/base/fullchain.pem /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt
-      ln -s /etc/letsencrypt/live/base/privkey.pem /etc/ssl/private/$EXTERNAL_HOSTNAME.key
-    else
-      # No cert here, We'll register and get one and store all the gubbins on the letsecnrypt volume (n.b. this needs to be an azuredisk for symlink reasons)
-      echo -e "Getting new cert and linking cert/key to /etc/ssl"
-      certbot -n $staging --expand --apache --agree-tos --email $ADMIN_EMAIL --cert-name base -d $EXTERNAL_HOSTNAME
-      # In case these are somehow hanging around to wreck the symlinking
-      [ -f  /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt ] && rm /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt
-      [ -f  /etc/ssl/private/$EXTERNAL_HOSTNAME.key ] && rm /etc/ssl/private/$EXTERNAL_HOSTNAME.key
-
-      # Link cert and key to a location that our general apache config will know about
-      if [ -f /etc/letsencrypt/live/base/fullchain.pem ]; then
-        ln -s /etc/letsencrypt/live/base/fullchain.pem /etc/ssl/certs/$EXTERNAL_HOSTNAME.crt
-        ln -s /etc/letsencrypt/live/base/privkey.pem /etc/ssl/private/$EXTERNAL_HOSTNAME.key
-      else
-        echo -e "${red}${bold}Certificate could not be obtained from letsencrypt using certbot!${normal}"
-      fi
-
-      # Certbot starts apache as a service.... we have no need for this once the certificate is generated so let's stop it
-      service apache2 stop
-    fi
-    printf "%-50s $print_ok\n" "Certificate obtained"; # hmmm... catch an error maybe?
-  else
-     printf "%-50s $print_ok\n" "Certificate already in place";
-  fi
-  echo -e "-- ${bold}Setting up auto renewal${normal} --"
-  # Remove this one as it is no good to us in this context
-  rm /etc/cron.d/certbot
-  # Add some evaluated variables 
-  sed -i "s/#EXTERNAL_HOSTNAME#/$EXTERNAL_HOSTNAME/" /var/tmp/renew_cert
-  sed -i "s/#ADMIN_EMAIL#/$ADMIN_EMAIL/" /var/tmp/renew_cert
-  # copy renew_script into cron.monthly (whould be frequent enough)
-  mv /var/tmp/renew_cert /etc/cron.monthly/renew_cert
-  printf "%-50s $print_ok\n" "renew_cert script moved to /etc/cron.monthly";
-fi
 
 # Start apache as recomended by the httpd image README
 echo -e "---- ${bold}Starting apache${normal} ----"
-APACHE_START=`/usr/local/bin/httpd-foreground`
+APACHE_RESTART=`/usr/local/bin/httpd-foreground`
 if [ "$?" -ne "0" ]; then
   printf "%-50s $print_fail\n" "Apache not started";
   echo -e "### ${bold}There was an issue starting apache. We have kept this container alive for you to go and see what's up...${normal} ###"

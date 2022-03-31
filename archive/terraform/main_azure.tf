@@ -1,6 +1,6 @@
 # Cluster
 module "azure_kubernetes" {
-  source = "git::https://github.com/anarchist-raccoons/terraform_azure_kubernetes.git?ref=master"
+  source = "git::https://github.com/anarchist-raccoons/terraform_azure_kubernetes.git?ref=main"
 
   # Required - add to terraform.tvars
   subscription_id = "${var.subscription_id}"
@@ -31,7 +31,7 @@ module "azure_kubernetes" {
 }
 
 module "kubernetes_secret_docker" {
-  source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_secret_docker.git?ref=master"
+  source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_secret_docker.git?ref=main"
 
   host = "${module.azure_kubernetes.host}"
   username = "${module.azure_kubernetes.username}"
@@ -48,7 +48,7 @@ module "kubernetes_secret_docker" {
 }
 
 module "kubernetes_secret_env" {
-    source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_secret_env.git?ref=master"
+    source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_secret_env.git?ref=main"
 
   host = "${module.azure_kubernetes.host}"
   username = "${module.azure_kubernetes.username}"
@@ -65,7 +65,7 @@ data "local_file" "env_secrets" {
 }
 
 module "kubernetes_storage" {
-    source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_storage.git?ref=master"
+    source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_storage.git?ref=main"
 
   host = "${module.azure_kubernetes.host}"
   username = "${module.azure_kubernetes.username}"
