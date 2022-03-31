@@ -3,9 +3,9 @@
 #   @todo Docker 18.9 provides an improved mechanism: https://docs.docker.com/develop/develop-images/build_enhancements/#using-ssh-to-access-private-data-in-builds
 
 # Build the intermediate image
-FROM researchtech/ulcc-core:alpha as intermediate
+#FROM researchtech/ulcc-core:alpha as intermediate
 # Switch this in for the line above to test a local core build
-#FROM core_ulcccore:latest as intermediate
+FROM core_ulcccore:latest as intermediate
 
 ARG APP_WORKDIR=/opt/eprints3
 ARG EPUSER=eprints
@@ -24,10 +24,14 @@ RUN chmod -R 600 /root/.ssh/
 
 RUN git clone git@$APP_SOURCE/$APP_KEY.git $APP_WORKDIR/archives/$APP_KEY
 
+#In case we have a theme sub module
+WORKDIR $APP_WORKDIR/archives/$APP_KEY
+RUN git submodule update --init
+
 # Build the image proper
-FROM researchtech/ulcc-core:alpha
+#FROM researchtech/ulcc-core:alpha
 # Switch this in for the line above to test a local core build
-#FROM core_ulcccore:latest
+FROM core_ulcccore:latest
 
 ARG APP_WORKDIR=/opt/eprints3
 ARG EPUSER=eprints
@@ -37,6 +41,9 @@ ARG ADMIN_USER
 ARG ADMIN_PASSWORD
 ARG EXTERNAL_HOSTNAME
 ARG ENVIRONMENT
+ARG IP_RESTRICTIONS
+ARG IP_RESTRICTIONS_SPACES
+
 
 WORKDIR $APP_WORKDIR
 
@@ -45,21 +52,32 @@ COPY --from=intermediate $APP_WORKDIR/archives $APP_WORKDIR/archives
 # Turn on cron logging
 RUN sed -i "s/^#cron/cron/" /etc/rsyslog.conf
 
+# Copy vhost for certbot into place
+COPY docker/apache_80.conf /usr/local/apache2/conf/
 # Copy ssl conf into place
 COPY docker/eprints-ssl.conf /usr/local/apache2/conf/
+
 
 # Change the apache User and Group to eprints
 RUN sed -i "s/User daemon/User $EPUSER/" /usr/local/apache2/conf/httpd.conf
 RUN sed -i "s/Group daemon/Group $EPUSER/" /usr/local/apache2/conf/httpd.conf
+RUN sed -i "s:CustomLog /proc/self/fd/1 common:#CustomLog /proc/self/fd/1 common:" /usr/local/apache2/conf/httpd.conf
+RUN sed -i "s:#CustomLog \"logs/access_log\" combined:CustomLog \"logs/access_log\" combined:" /usr/local/apache2/conf/httpd.conf
+
 # Change to ServerName in main http.donf (this is mainly just to make the apache moan go away)
 RUN sed -i "s/#ServerName .*/ServerName $EXTERNAL_HOSTNAME/" /usr/local/apache2/conf/httpd.conf
+# This is for certbot
+RUN sed -i "s/#EXTERNAL_HOSTNAME#/$EXTERNAL_HOSTNAME/" /usr/local/apache2/conf/apache_80.conf
 
 # Change to all instances of #EXTERNAL_HOSTNAME# in eprints-ssl.conf to whatever the $EXTERNAL_HOSTNAME is... etc etc
 RUN sed -i "s/#EXTERNAL_HOSTNAME#/$EXTERNAL_HOSTNAME/" /usr/local/apache2/conf/eprints-ssl.conf
 RUN sed -i "s/#ADMIN_EMAIL#/$ADMIN_EMAIL/" /usr/local/apache2/conf/eprints-ssl.conf
 RUN sed -i "s/#APP_KEY#/$APP_KEY/g" /usr/local/apache2/conf/eprints-ssl.conf
 RUN sed -i "s/#APP_KEY_ENV#/$APP_KEY-$ENVIRONMENT/g" /usr/local/apache2/conf/eprints-ssl.conf
+RUN if [ "$ENVIRONMENT" != "prod" ]; then sed -i "s/#ROBOTS_HEADER#/Header set X-Robots-Tag \"noindex, nofollow, noarchive\"/g" /usr/local/apache2/conf/eprints-ssl.conf ; fi
 
+# turn commas into spaces from the .env file IP_RESTRICTIONS
+#RUN sed -i "s:#IP_RESTRICTIONS#:$(echo "$IP_RESTRICTIONS"  | sed -e 's/,/ /g'):g" /usr/local/apache2/conf/eprints-ssl.conf
 
 # We will control the apachevhost.conf for all EPrints as this is the only way to get things sensibly into the :80 vhost
 # It will include an Include for site-specific apache config too
@@ -71,6 +89,17 @@ RUN sed -i "s/#APP_KEY_ENV#/$APP_KEY-$ENVIRONMENT/g" archives/$APP_KEY/cfg/apach
 COPY docker/environment_phrases /var/tmp/
 COPY docker/999_env_ribbon.js /var/tmp/
 COPY docker/zzz_env_ribbon.css /var/tmp/
+
+# There are some things we may want to disable in a non-production environment
+COPY docker/z_no_shibb.pl /var/tmp/
+
+# Copy in data to migrate to the new instance
+# If a files exist of the forms
+#  - migrate_$APP_KEY.sql
+#  - migrate_$APP_KEY_docs.tar.gz
+# They will be used by the docker-entry-point.sh to populate 
+# the database and document/disk0 volume respectively
+COPY docker/migrate_* /var/tmp/
 
 # Copy helper scripts in to place
 COPY docker/docker-entrypoint.sh /bin/

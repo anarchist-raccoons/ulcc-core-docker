@@ -4,7 +4,7 @@ bold=$(tput bold)
 normal=$(tput sgr0)
 
 declare -A allowed_env=( 
- [prod]=1  [uat]=1  [dev]=1
+ [prod]=1  [uat]=1  [dev]=1 [train]=1 [demo]=1
 )
 
 function valid_ip {
@@ -28,6 +28,12 @@ function valid_ip {
 APP_KEY=$1
 POD=$2
 ENVIRONMENT=${3:-dev}
+
+if [ ! -f "../.env" ]; then
+   cd ../
+   echo "./docker-compose-wrapper $APP_KEY $ENVIRONMENT env"
+   cd terraform
+fi
 
 echo "Reading from ../../../builds/$APP_KEY-$ENVIRONMENT/.env"
 export $(egrep -v '^#' ../../../builds/$APP_KEY-$ENVIRONMENT/.env | xargs)

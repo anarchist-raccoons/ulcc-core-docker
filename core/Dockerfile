@@ -1,4 +1,4 @@
-FROM httpd:2.4
+FROM httpd:2.4-buster
 
 RUN apt-get update
 
@@ -17,6 +17,7 @@ RUN apt-get update -qq \
    gzip \
    imagemagick \
    less \
+   libalgorithm-checkdigits-perl \
    libapache2-mod-perl2 \
    libarchive-any-perl \
    libcgi-pm-perl \
@@ -35,6 +36,7 @@ RUN apt-get update -qq \
    libsearch-xapian-perl \
    libselinux1 \
    libsepol1 \
+   libspreadsheet-writeexcel-perl \
    libterm-readkey-perl \
    libtex-encode-perl \
    libtext-markdown-perl \
@@ -50,7 +52,6 @@ RUN apt-get update -qq \
    net-tools \
    perl \
    psutils \
-   python-certbot-apache \
    rsyslog \
    sudo \
    tar \
@@ -62,6 +63,8 @@ RUN apt-get update -qq \
    wget \
    xpdf
 
+#   xpdf  https://wiki.eprints.org/w/Installing_EPrints_on_Debian/Ubuntu#Previous_issues #TODO address properly for 3.3.x...? dependency for xpdf appears to come from cgi/paracite... :/
+
 # Setup build variables
 ARG APP_WORKDIR=/opt/eprints3
 ARG BRANCH
@@ -72,6 +75,7 @@ RUN adduser --disabled-password --gecos "" $EPUSER
 
 # Clone the application
 RUN git clone https://github.com/eprintsug/ulcc-core.git $APP_WORKDIR
+
 COPY ./docker/SystemSettings.pm $APP_WORKDIR/perl_lib/EPrints/SystemSettings.pm
 
 # Load required modules
@@ -82,5 +86,7 @@ RUN chown -R $EPUSER:$EPUSER $APP_WORKDIR
 
 WORKDIR $APP_WORKDIR
 
+RUN git fetch
 RUN git checkout $BRANCH
+
 RUN git submodule update --init
