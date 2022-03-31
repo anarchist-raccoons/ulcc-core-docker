@@ -39,6 +39,12 @@ variable "disk_size_gb" {
   default = 30
 }
 
+variable "docs_mount_size" {
+}
+
+variable "db_mount_size" {
+}
+
 variable "developer_access" {
   type = "list"
 }
@@ -52,3 +58,9 @@ variable "secondary_port" { }
 
 variable "zone_name" { }
 variable "zone_resource_group" { }
+
+variable "container_memory_limit" { }
+variable "container_memory_request" { }
+
+variable "container_cpu_limit" { }
+variable "container_cpu_request" { }

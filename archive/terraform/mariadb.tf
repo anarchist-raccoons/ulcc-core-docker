@@ -1,6 +1,6 @@
 # mariadb
 module "kubernetes_mariadb" {
-  source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_deployment_simple.git?ref=master"
+  source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_deployment_simple_no_limitrange.git?ref=main"
 
   host = "${module.azure_kubernetes.host}"
   username = "${module.azure_kubernetes.username}"
@@ -21,10 +21,17 @@ module "kubernetes_mariadb" {
   image_pull_secrets = "${module.kubernetes_secret_docker.kubernetes_secret_name}"
   env_from = "${module.kubernetes_secret_env.kubernetes_secret_name}"
 
+#  container_memory_limit = "${var.container_memory_limit}"
+#  container_memory_request = "${var.container_memory_request}"
+
+#  container_cpu_limit = "${var.container_cpu_limit}"
+#  container_cpu_request = "${var.container_cpu_request}"
+
+
 }
 
 module "kubernetes_pvc_mariadb" {
-  source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_pvc.git?ref=master"
+  source = "git::https://github.com/anarchist-raccoons/terraform_kubernetes_pvc.git?ref=main"
 
   host = "${module.azure_kubernetes.host}"
   username = "${module.azure_kubernetes.username}"
@@ -33,6 +40,8 @@ module "kubernetes_pvc_mariadb" {
   client_key = "${module.azure_kubernetes.client_key}"
   cluster_ca_certificate = "${module.azure_kubernetes.cluster_ca_certificate}"
   
+  mount_size = "${var.db_mount_size}"
+
   volume= "mariadb"
   storage_class_name = "azuredisk"
 

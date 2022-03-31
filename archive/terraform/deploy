@@ -1,5 +1,9 @@
 #!/bin/bash
 
+bold=$(tput bold)
+normal=$(tput sgr0)
+
+
 function plan() {
   # plan (actually a targetted plan for null_resource.build only)
   terraform plan -out=../../../builds/$repo-$environment/$repo-$environment.tfplan -var-file=../../../builds/$repo-$environment/terraform.tfvars -state=../../../builds/$repo-$environment/terraform.tfstate -target null_resource.build
@@ -28,8 +32,14 @@ function refresh() {
 function taint() {
   # taint (for example, having rebuilt the image, re-push)
   terraform taint -state=../../../builds/$repo-$environment/terraform.tfstate null_resource.build
+}
+
+function untaint() {
+  # taint (for example, having rebuilt the image, re-push)
+  terraform untaint -state=../../../builds/$repo-$environment/terraform.tfstate null_resource.build
 
 }
+
 
 function go() {
   # taint (for example, having rebuilt the image, re-push)
@@ -48,7 +58,7 @@ function go() {
 
 function go_all() {
   # taint (for example, having rebuilt the image, re-push)
-  taint
+  #taint
   plan_all
   #CHECK and APPLY
   while true; do
@@ -81,17 +91,21 @@ fi
 
 
 declare -A allowed_actions=( 
- [plan]=1  [taint]=1  [apply]=1 [destroy]=1 [refresh]=1 [plan_all]=1 [go]=1 [go_all]=1
+ [plan]=1 [taint]=1 [untaint]=1 [apply]=1 [destroy]=1 [refresh]=1 [plan_all]=1 [go]=1 [go_all]=1
 )
 
 [[ ! -n "${allowed_actions[$action]}" ]] && printf '%s is not allowed\n' "$action" && exit
 
 # Temporarily put a copy of the .env file somewhere that terraform can reference it without relative rigmarole
-cp ../../../builds/$repo-$environment/.env ../
+if [ ! -f "../.env" ]; then
+   echo "Copying .env from ../../../bulds/$repo-$environment/.env to ../"
+   #../docker-compose-wrapper $repo $environment env
+   cp ../../../builds/$repo-$environment/.env ../
+fi
 
-echo "Reading from ../../../builds/$repo-$environment/.env"
-export $(egrep -v '^#' ../../../builds/$repo-$environment/.env | xargs)
-sed -i "s/^EXTERNAL_HOSTNAME=$/EXTERNAL_HOSTNAME=$EXTERNAL_HOSTNAME/" ../.env
+echo "Reading from ../.env"
+export $(egrep -v '^#' ../.env | xargs)
+#sed -i "s/^EXTERNAL_HOSTNAME=$/EXTERNAL_HOSTNAME=$EXTERNAL_HOSTNAME/" ../.env
 
 # Do whatever has been asked of us
 $action
