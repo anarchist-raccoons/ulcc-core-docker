@@ -83,7 +83,7 @@ export USE_SS_CERT=$USE_SS_CERT
 sed -i "s/^USE_SS_CERT=.*$/USE_SS_CERT=$USE_SS_CERT/" ./.env
 
 if [ -z "$EXTERNAL_HOSTNAME" ]; then
-  export EXTERNAL_HOSTNAME=$APP_KEY-$ENVIRONMENT.leaf.cosector.com
+  export EXTERNAL_HOSTNAME=$APP_KEY-$ENVIRONMENT.$APP.cdl.cosector.com
 fi
 
 sed -i "s/^EXTERNAL_HOSTNAME=.*$/EXTERNAL_HOSTNAME=$EXTERNAL_HOSTNAME/" ./.env
